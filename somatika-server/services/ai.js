@@ -35,11 +35,6 @@ const SYSTEM_PROMPTS = {
 async function callAI(message, project = "custom", scenario = "NORMAL") {
   const apiKey = process.env.OPENAI_API_KEY;
 
-  if (!apiKey) {
-    console.warn("⚠️ OPENAI_API_KEY not set, using mock response");
-    return getMockResponse(message, project, scenario);
-  }
-
   const systemPrompt = SYSTEM_PROMPTS[project] || SYSTEM_PROMPTS.custom;
 
   try {
