@@ -2,11 +2,45 @@ const express = require("express");
 const router = express.Router();
 const { processMessage } = require("../engine/leo");
 const { saveMessage, getMessagesByUser } = require("../db/db");
+const { saveFile } = require("../engine/fileManager");
+
+/**
+ * Парсинг сообщения в формате [MODE: FILE]
+ * @param {string} message - Текст сообщения
+ * @returns {object|null} - { name, content } или null
+ */
+function parseFileMessage(message) {
+  // Проверка на формат файла
+  if (!message.includes("[MODE: FILE]")) {
+    return null;
+  }
+
+  // Извлечение имени файла
+  const nameMatch = message.match(/NAME:\s*([^\n]+)/);
+  if (!nameMatch) {
+    return null;
+  }
+  const name = nameMatch[1].trim();
+
+  // Извлечение содержимого
+  const contentStart = message.indexOf("CONTENT:");
+  const contentEnd = message.indexOf("[END FILE]");
+  
+  if (contentStart === -1 || contentEnd === -1) {
+    return null;
+  }
+
+  const content = message
+    .substring(contentStart + 8, contentEnd)
+    .trim();
+
+  return { name, content };
+}
 
 /**
  * POST /api/message
  * Обработка сообщения пользователя
- * 
+ *
  * Body:
  * {
  *   "userId": "123",
@@ -26,7 +60,43 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Обработка через Leo Engine
+    // ПРОВЕРКА: Если сообщение содержит [MODE: FILE]
+    if (message.includes("[MODE: FILE]")) {
+      const fileData = parseFileMessage(message);
+
+      if (!fileData) {
+        return res.status(400).json({
+          error: "Invalid file format",
+          required: ["[MODE: FILE]", "NAME:", "CONTENT:", "[END FILE]"]
+        });
+      }
+
+      // Сохранение файла (без Leo Engine, без AI)
+      const result = saveFile(fileData.name, fileData.content);
+
+      // Сохранение в БД как системное сообщение
+      await saveMessage({
+        userId,
+        project,
+        message,
+        reply: "Файл принят",
+        type: "system",
+        timestamp: new Date().toISOString()
+      });
+
+      console.log(`📁 File message received from ${userId}: ${fileData.name}`);
+
+      return res.json({
+        success: true,
+        data: {
+          reply: "Файл принят",
+          type: "system",
+          file: result
+        }
+      });
+    }
+
+    // Обработка через Leo Engine (обычный режим)
     const result = await processMessage(userId, project, message);
 
     // Сохранение в БД

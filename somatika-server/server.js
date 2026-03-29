@@ -4,8 +4,10 @@ const cors = require("cors");
 
 const messageRoute = require("./routes/message");
 const patchRoute = require("./routes/patch");
+const fileRoute = require("./routes/file");
 const { init: initPatchManager, getStats: getPatchStats } = require("./engine/patchManager");
 const { getStats: getDbStats } = require("./db/db");
+const { getStats: getFileStats } = require("./engine/fileManager");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,6 +21,7 @@ app.use(express.json());
 // API Routes
 app.use("/api/message", messageRoute);
 app.use("/api/patch", patchRoute);
+app.use("/api/file", fileRoute);
 
 // Stats endpoint
 app.get("/api/stats", (req, res) => {
@@ -26,7 +29,8 @@ app.get("/api/stats", (req, res) => {
     success: true,
     data: {
       database: getDbStats(),
-      patches: getPatchStats()
+      patches: getPatchStats(),
+      files: getFileStats()
     }
   });
 });
